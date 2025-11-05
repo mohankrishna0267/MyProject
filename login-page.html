@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login & Sign Up Demo</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #f0f2f5;
+    }
+
+    .container {
+      background: #fff;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 350px;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      color: #333;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: bold;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+      border: none;
+      border-radius: 6px;
+      background: #007bff;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    .message {
+      color: black;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    .toggle-btn {
+      background: transparent;
+      color: #007bff;
+      border: none;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="loginContainer">
+      <h2>Login</h2>
+      <form id="loginForm">
+        <label>Email:</label>
+        <input type="email" id="loginEmail" required>
+        <label>Password:</label>
+        <input type="password" id="loginPassword" required>
+        <button type="submit">Login</button>
+      </form>
+      <p class="message" id="loginMessage"></p>
+      <button class="toggle-btn" id="showSignupBtn">Don't have an account? Sign Up</button>
+    </div>
+
+    <div id="signupContainer" style="display:none;">
+      <h2>Sign Up</h2>
+      <form id="signupForm">
+        <label>Email:</label>
+        <input type="email" id="signupEmail" required>
+        <label>Password:</label>
+        <input type="password" id="signupPassword" required>
+        <button type="submit">Sign Up</button>
+      </form>
+      <p class="message" id="signupMessage"></p>
+      <button class="toggle-btn" id="showLoginBtn">Already have an account? Login</button>
+    </div>
+  </div>
+
+  <script>
+
+    //signup form
+    document.getElementById("showSignupBtn").onclick = function() {
+      document.getElementById("loginContainer").style.display = "none";
+      document.getElementById("signupContainer").style.display = "block";
+    }
+
+    //login form
+    document.getElementById("showLoginBtn").onclick = function() {
+      document.getElementById("signupContainer").style.display = "none";
+      document.getElementById("loginContainer").style.display = "block";
+    }
+
+    // Login logic
+     document.getElementById("loginForm").onsubmit = function login(e) {
+      e.preventDefault();
+      const email = document.getElementById("loginEmail").value;
+      const password = document.getElementById("loginPassword").value;
+     
+
+     fetch('http://localhost:3000/login',{
+         method : 'POST',
+         headers : { 'content-type' : 'application/json'},
+         body : JSON.stringify({email,password})
+     })
+
+     .then((res) => res.json())  
+     .then(data=> {
+          document.getElementById('loginMessage').innerText = data.message;
+    })
+    .catch((err) => {
+      console.error("Error:", err);
+    });
+
+     document.getElementById("loginForm").reset(); 
+    }
+
+    // Signup logic
+    document.getElementById("signupForm").onsubmit = function signup(e) {
+      e.preventDefault();
+      const email = document.getElementById("signupEmail").value;
+      const password = document.getElementById("signupPassword").value;
+
+      fetch('http://localhost:3000/signup',{
+         method : 'POST',
+         headers : { 'content-type' : 'application/json'},
+         body : JSON.stringify({email,password})
+     })
+
+     .then((res) => res.json())  
+     .then(data => {
+      document.getElementById('signupMessage').innerText = data.message;
+    })
+    .catch((err) => {
+      console.error("Error:", err);
+    });       
+     document.getElementById("signupForm").reset();
+    }
+  </script>
+</body>
+</html>
