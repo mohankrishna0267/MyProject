@@ -8,6 +8,6 @@ import java.util.List;
 public interface FeedbackService {
 
     FeedbackResponse submitFeedback(FeedbackRequest request);
-
+    Double getAverageRatingForOfficer(Long officerId);
     List<FeedbackResponse> getFeedbackBySession(Long sessionId);
 }

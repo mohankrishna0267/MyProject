@@ -28,4 +28,9 @@ public class FeedbackController {
     public ResponseEntity<List<FeedbackResponse>> getFeedbackBySession(@PathVariable Long sessionId) {
         return ResponseEntity.ok(feedbackService.getFeedbackBySession(sessionId));
     }
+
+    @GetMapping("/officer/{officerId}/rating")
+    public ResponseEntity<Double> getOfficerRating(@PathVariable Long officerId) {
+        return ResponseEntity.ok(feedbackService.getAverageRatingForOfficer(officerId));
+    }
 }

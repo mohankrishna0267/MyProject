@@ -1,6 +1,8 @@
 package com.agriserve.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.*;
 
 @Entity
@@ -26,6 +28,10 @@ public class Participation {
 
     @Enumerated(EnumType.STRING)
     private AttendanceStatus attendanceStatus;
+
+    @Min(1)
+    @Max(5)
+    private Integer rating;
 
     private String feedback;
 

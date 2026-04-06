@@ -4,6 +4,7 @@ import com.agriserve.dto.feedback.SatisfactionMetricResponse;
 import com.agriserve.entity.SatisfactionMetric;
 import com.agriserve.entity.TrainingProgram;
 import com.agriserve.repository.FeedbackRepository;
+import com.agriserve.repository.ParticipationRepository;
 import com.agriserve.repository.SatisfactionMetricRepository;
 import com.agriserve.repository.TrainingProgramRepository;
 import com.agriserve.service.SatisfactionMetricService;
@@ -19,6 +20,7 @@ import java.util.List;
 public class SatisfactionMetricServiceImpl implements SatisfactionMetricService {
 
     private final SatisfactionMetricRepository metricRepository;
+    private final ParticipationRepository participationRepository;
     private final TrainingProgramRepository programRepository;
     private final FeedbackRepository feedbackRepository;
 
@@ -27,7 +29,7 @@ public class SatisfactionMetricServiceImpl implements SatisfactionMetricService 
 
         TrainingProgram program = programRepository.findById(programId).orElseThrow();
 
-        Double avg = feedbackRepository.findAverageRatingByProgramId(programId).orElse(0.0);
+        Double avg = participationRepository.findAverageRatingByProgramId(programId);
 
         SatisfactionMetric metric = SatisfactionMetric.builder()
                 .program(program)

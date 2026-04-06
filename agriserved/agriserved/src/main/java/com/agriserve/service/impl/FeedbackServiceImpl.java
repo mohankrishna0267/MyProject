@@ -61,4 +61,12 @@ public class FeedbackServiceImpl implements FeedbackService {
                         .build())
                 .toList();
     }
+
+    @Override
+    public Double getAverageRatingForOfficer(Long officerId) {
+
+        Double avg = feedbackRepository.findAverageRatingByOfficerId(officerId);
+
+        return avg != null ? avg : 0.0;
+    }
 }
