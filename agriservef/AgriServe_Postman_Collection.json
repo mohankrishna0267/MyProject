@@ -1,0 +1,316 @@
+{
+  "info": {
+    "name": "AgriServe API — Sample Requests",
+    "description": "Complete Postman collection for AgriServe Agricultural Extension & Farmer Advisory System.\n\nBase URL: http://localhost:8080/api\n\nStep 1: Register an Admin user\nStep 2: Login and copy the token\nStep 3: Add 'Authorization: Bearer <token>' header to all subsequent requests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api" },
+    { "key": "token",   "value": "PASTE_JWT_TOKEN_HERE" }
+  ],
+  "item": [
+
+    {
+      "name": "1. Auth — Register Admin",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/auth/register",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Admin User\",\n  \"role\": \"ADMIN\",\n  \"email\": \"admin@agriserve.in\",\n  \"password\": \"Admin@1234\",\n  \"phone\": \"9000000000\"\n}"
+        }
+      }
+    },
+
+    {
+      "name": "2. Auth — Login",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/auth/login",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"admin@agriserve.in\",\n  \"password\": \"Admin@1234\"\n}"
+        }
+      }
+    },
+
+    {
+      "name": "3. Auth — Register Extension Officer",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/auth/register",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Officer Ravi\",\n  \"role\": \"EXTENSION_OFFICER\",\n  \"email\": \"officer@agriserve.in\",\n  \"password\": \"Officer@1234\",\n  \"phone\": \"9111111111\"\n}"
+        }
+      }
+    },
+
+    {
+      "name": "4. Farmers — Register Farmer",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/farmers",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Ramesh Kumar\",\n  \"dateOfBirth\": \"1985-06-15\",\n  \"gender\": \"MALE\",\n  \"address\": \"Village Rampur, Dist. Lucknow, UP\",\n  \"contactInfo\": \"9876543210\",\n  \"landSize\": 5.5,\n  \"cropType\": \"Wheat\"\n}"
+        }
+      }
+    },
+
+    {
+      "name": "5. Farmers — Search Farmers",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/farmers?name=Ramesh&cropType=Wheat&page=0&size=10&sort=name,asc",
+          "query": [
+            { "key": "name", "value": "Ramesh" },
+            { "key": "cropType", "value": "Wheat" },
+            { "key": "page", "value": "0" },
+            { "key": "size", "value": "10" },
+            { "key": "sort", "value": "name,asc" }
+          ]
+        },
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+      }
+    },
+
+    {
+      "name": "6. Farmers — Update Status to APPROVED",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/farmers/1/status?status=APPROVED",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+      }
+    },
+
+    {
+      "name": "7. Advisory — Create Advisory Content",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/advisory/content",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Wheat Pest Control Guide 2025\",\n  \"description\": \"Comprehensive guide on managing wheat pests using IPM approach\",\n  \"fileUri\": \"/uploads/wheat_pest_guide.pdf\",\n  \"category\": \"PEST_CONTROL\",\n  \"status\": \"ACTIVE\"\n}"
+        }
+      }
+    },
+
+    {
+      "name": "8. Advisory — Search Content",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/advisory/content?category=PEST_CONTROL&status=ACTIVE&page=0&size=10",
+          "query": [
+            { "key": "category", "value": "PEST_CONTROL" },
+            { "key": "status", "value": "ACTIVE" },
+            { "key": "page", "value": "0" },
+            { "key": "size", "value": "10" }
+          ]
+        },
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+      }
+    },
+
+    {
+      "name": "9. Advisory — Book Session",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/advisory/sessions",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"officerId\": 2,\n  \"farmerId\": 1,\n  \"contentId\": 1,\n  \"sessionDate\": \"2025-08-20T10:00:00\"\n}"
+        }
+      }
+    },
+
+    {
+      "name": "10. Training — Create Program",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/training/programs",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Kharif Season Intensive Training 2025\",\n  \"description\": \"Hands-on training program for Kharif crop management\",\n  \"startDate\": \"2025-07-01\",\n  \"endDate\": \"2025-09-30\",\n  \"status\": \"ACTIVE\"\n}"
+        }
+      }
+    },
+
+    {
+      "name": "11. Training — Schedule Workshop",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/training/workshops",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"programId\": 1,\n  \"officerId\": 2,\n  \"location\": \"Krishi Vigyan Kendra, Lucknow\",\n  \"workshopDate\": \"2025-07-15T09:00:00\"\n}"
+        }
+      }
+    },
+
+    {
+      "name": "12. Training — Register Participation",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/training/participation",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"workshopId\": 1,\n  \"farmerId\": 1,\n  \"attendanceStatus\": \"PRESENT\",\n  \"feedback\": \"Very informative session on crop rotation.\"\n}"
+        }
+      }
+    },
+
+    {
+      "name": "13. Feedback — Submit Feedback (Rating 1-5)",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/feedback",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"farmerId\": 1,\n  \"sessionId\": 1,\n  \"rating\": 4,\n  \"comments\": \"Officer was very knowledgeable and helpful.\"\n}"
+        }
+      }
+    },
+
+    {
+      "name": "14. Feedback — Compute Satisfaction Metric",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/feedback/satisfaction/program/1/compute",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+      }
+    },
+
+    {
+      "name": "15. Compliance — Create Compliance Record",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/compliance/records",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"entityId\": 1,\n  \"complianceType\": \"PESTICIDE_USAGE\",\n  \"result\": \"PASSED\",\n  \"notes\": \"Farmer complied with approved pesticide list.\"\n}"
+        }
+      }
+    },
+
+    {
+      "name": "16. Compliance — Create Audit",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/compliance/audits",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"officerId\": 1,\n  \"scope\": \"DISTRICT\",\n  \"findings\": \"85% of enrolled farmers meet compliance standards. 12 farms flagged for pesticide overuse.\"\n}"
+        }
+      }
+    },
+
+    {
+      "name": "17. Notifications — Send Notification",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/notifications",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": 1,\n  \"entityId\": 1,\n  \"message\": \"Your farmer registration has been approved! Welcome to AgriServe.\",\n  \"category\": \"GENERAL\"\n}"
+        }
+      }
+    },
+
+    {
+      "name": "18. Notifications — Mark All Read (Current User)",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/notifications/me/read-all",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+      }
+    },
+
+    {
+      "name": "19. Reports — Generate Monthly Report",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/reports",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"scope\": \"MONTHLY\",\n  \"title\": \"AgriServe July 2025 Monthly Report\"\n}"
+        }
+      }
+    },
+
+    {
+      "name": "20. Reports — Get All Reports",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/reports?page=0&size=10&sort=generatedDate,desc",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+      }
+    },
+
+    {
+      "name": "21. VALIDATION TEST — Submit Feedback with Rating = 6 (should fail)",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/feedback",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"farmerId\": 1,\n  \"sessionId\": 1,\n  \"rating\": 6,\n  \"comments\": \"This should fail validation\"\n}"
+        }
+      }
+    }
+
+  ]
+}
