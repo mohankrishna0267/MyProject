@@ -6,6 +6,8 @@ import com.agriserve.entity.AdvisorySession;
 import com.agriserve.entity.Farmer;
 import com.agriserve.entity.Feedback;
 import com.agriserve.entity.SatisfactionMetric;
+import com.agriserve.entity.User;
+import com.agriserve.entity.enums.MetricType;
 import com.agriserve.entity.enums.Status;
 import com.agriserve.exception.BusinessException;
 import com.agriserve.exception.ResourceNotFoundException;
@@ -13,8 +15,10 @@ import com.agriserve.repository.AdvisorySessionRepository;
 import com.agriserve.repository.FarmerRepository;
 import com.agriserve.repository.FeedbackRepository;
 import com.agriserve.repository.SatisfactionMetricRepository;
-import com.agriserve.repository.TrainingProgramRepository;
+import com.agriserve.repository.UserRepository;
+import com.agriserve.service.AuditLogService;
 import com.agriserve.service.FeedbackService;
+import com.agriserve.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -23,7 +27,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Handles feedback submission and satisfaction metric computation.
+ * Handles advisory session feedback and officer performance metric computation.
+ *
+ * Data-flow: Advisory → Session → Feedback (Feedback.rating) → Officer Performance
+ *
+ * Fixes applied:
+ *   Issue 3         – audit log on feedback submission
+ *   Issue 6 / 9     – metric uses Feedback.rating for OFFICER_PERFORMANCE only;
+ *                     PROGRAM_SATISFACTION metric is computed in MetricSchedulerService
+ *                     from Participation.workshopRating (training data)
+ *   Issue 7         – session must be COMPLETED before feedback is accepted
+ *   Session Ownership – feedback submitter must be the session's own farmer
  */
 @Slf4j
 @Service
@@ -34,7 +48,8 @@ public class FeedbackServiceImpl implements FeedbackService {
     private final FarmerRepository farmerRepository;
     private final AdvisorySessionRepository sessionRepository;
     private final SatisfactionMetricRepository metricRepository;
-    private final TrainingProgramRepository programRepository;
+    private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
     @Override
     @Transactional
@@ -44,11 +59,24 @@ public class FeedbackServiceImpl implements FeedbackService {
         AdvisorySession session = sessionRepository.findById(request.getSessionId())
                 .orElseThrow(() -> new ResourceNotFoundException("AdvisorySession", "id", request.getSessionId()));
 
-        // Enforce one feedback per farmer per session
+        // ── Issue 7: Session must be COMPLETED before submitting feedback ──
+        if (session.getStatus() != Status.COMPLETED) {
+            throw new BusinessException(
+                "Feedback can only be submitted for COMPLETED sessions. "
+                + "Current status: " + session.getStatus());
+        }
+
+        // ── Session Ownership Fix: Only the session's own farmer can submit ─
+        if (!session.getFarmer().getFarmerId().equals(request.getFarmerId())) {
+            throw new BusinessException(
+                "You cannot give feedback for another farmer's session.");
+        }
+
+        // ── Enforce one feedback per farmer per session ────────────────────
         feedbackRepository.findByFarmer_FarmerIdAndSession_SessionId(
                 request.getFarmerId(), request.getSessionId())
                 .ifPresent(f -> {
-                    throw new BusinessException("Feedback already submitted for this session by this farmer");
+                    throw new BusinessException("Feedback already submitted for this session by this farmer.");
                 });
 
         Feedback feedback = Feedback.builder()
@@ -57,7 +85,16 @@ public class FeedbackServiceImpl implements FeedbackService {
                 .rating(request.getRating())
                 .comments(request.getComments())
                 .build();
-        return FeedbackResponse.from(feedbackRepository.save(feedback));
+        Feedback saved = feedbackRepository.save(feedback);
+
+        // ── Issue 3: Audit log ─────────────────────────────────────────────
+        auditLogService.log(farmer.getUser(), "SUBMIT_FEEDBACK",
+                "Feedback#" + saved.getFeedbackId(),
+                "Session#" + session.getSessionId() + " rating=" + request.getRating());
+
+        log.info("Feedback submitted: id={}, session={}, farmer={}, rating={}",
+                saved.getFeedbackId(), session.getSessionId(), farmer.getFarmerId(), request.getRating());
+        return FeedbackResponse.from(saved);
     }
 
     @Override
@@ -86,23 +123,34 @@ public class FeedbackServiceImpl implements FeedbackService {
         return avg != null ? Math.round(avg * 100.0) / 100.0 : 0.0;
     }
 
+    /**
+     * Computes and persists an OFFICER_PERFORMANCE metric for the officer who
+     * delivered the advisory sessions in the given program's workshops.
+     *
+     * Issue 6/9 Fix:
+     *   - Uses AVG(Feedback.rating) grouped by officer — advisory data only.
+     *   - PROGRAM_SATISFACTION is computed separately by MetricSchedulerService
+     *     using AVG(Participation.workshopRating) — training data only.
+     */
     @Override
     @Transactional
-    public Double computeAndStoreSatisfactionMetric(Long programId) {
-        programRepository.findById(programId)
-                .orElseThrow(() -> new ResourceNotFoundException("TrainingProgram", "id", programId));
+    public Double computeAndStoreSatisfactionMetric(Long officerId) {
+        User officer = userRepository.findById(officerId)
+                .orElseThrow(() -> new ResourceNotFoundException("User (Officer)", "id", officerId));
 
-        Double avg = feedbackRepository.findAverageRatingByProgramId(programId);
+        Double avg = feedbackRepository.findAverageRatingByOfficerId(officerId);
         double score = avg != null ? Math.round(avg * 100.0) / 100.0 : 0.0;
 
-        // Persist the metric snapshot
+        // Persist as OFFICER_PERFORMANCE metric — no program linkage needed here
         SatisfactionMetric metric = SatisfactionMetric.builder()
-                .program(programRepository.getReferenceById(programId))
+                .officer(officer)
+                .metricType(MetricType.OFFICER_PERFORMANCE)
                 .score(score)
                 .status(Status.ACTIVE)
                 .build();
         metricRepository.save(metric);
-        log.info("Satisfaction metric computed for program {}: {}", programId, score);
+
+        log.info("Officer performance metric computed for officer {}: {}", officerId, score);
         return score;
     }
 }

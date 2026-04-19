@@ -19,13 +19,15 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
 
     Optional<Feedback> findByFarmer_FarmerIdAndSession_SessionId(Long farmerId, Long sessionId);
 
-    /** Compute average rating for a specific advisory session */
+    /** Compute average advisory rating for a specific session — feeds officer performance */
     @Query("SELECT AVG(f.rating) FROM Feedback f WHERE f.session.sessionId = :sessionId")
     Double findAverageRatingBySessionId(@Param("sessionId") Long sessionId);
 
-    /** Compute average rating for all sessions under a training program's workshops */
-    @Query("SELECT AVG(f.rating) FROM Feedback f " +
-           "JOIN f.session s JOIN s.farmer fa JOIN fa.participations p " +
-           "JOIN p.workshop w WHERE w.program.programId = :programId")
-    Double findAverageRatingByProgramId(@Param("programId") Long programId);
+    /**
+     * Compute average Feedback rating for all advisory sessions handled by a specific officer.
+     * Used for OFFICER_PERFORMANCE metric.
+     * NOTE: This is ADVISORY data only — do NOT mix with Participation.workshopRating.
+     */
+    @Query("SELECT AVG(f.rating) FROM Feedback f WHERE f.session.officer.userId = :officerId")
+    Double findAverageRatingByOfficerId(@Param("officerId") Long officerId);
 }

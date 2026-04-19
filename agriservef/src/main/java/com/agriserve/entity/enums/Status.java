@@ -7,9 +7,13 @@ public enum Status {
     ACTIVE,
     INACTIVE,
     PENDING,
+
     APPROVED,
     REJECTED,
+
+    SCHEDULED,
     COMPLETED,
     CANCELLED,
+
     DRAFT
 }

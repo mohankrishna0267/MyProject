@@ -21,10 +21,13 @@ import java.time.LocalDateTime;
 public class FarmerResponse {
 
     private Long farmerId;
+    private Long userId;
     private String name;
     private LocalDate dateOfBirth;
     private Gender gender;
     private String address;
+    private String phone;
+    private String email;
     private String contactInfo;
     private Double landSize;
     private String cropType;
@@ -34,10 +37,13 @@ public class FarmerResponse {
     public static FarmerResponse from(Farmer farmer) {
         return FarmerResponse.builder()
                 .farmerId(farmer.getFarmerId())
+                .userId(farmer.getUser() != null ? farmer.getUser().getUserId() : null)
                 .name(farmer.getName())
                 .dateOfBirth(farmer.getDateOfBirth())
                 .gender(farmer.getGender())
                 .address(farmer.getAddress())
+                .phone(farmer.getPhone())
+                .email(farmer.getEmail())
                 .contactInfo(farmer.getContactInfo())
                 .landSize(farmer.getLandSize())
                 .cropType(farmer.getCropType())

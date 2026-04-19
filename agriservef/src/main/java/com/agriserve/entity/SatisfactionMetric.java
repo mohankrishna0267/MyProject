@@ -1,5 +1,6 @@
 package com.agriserve.entity;
 
+import com.agriserve.entity.enums.MetricType;
 import com.agriserve.entity.enums.Status;
 import jakarta.persistence.*;
 import lombok.*;
@@ -13,7 +14,9 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "satisfaction_metrics", indexes = {
-    @Index(name = "idx_metric_program", columnList = "program_id")
+    @Index(name = "idx_metric_program", columnList = "program_id"),
+    @Index(name = "idx_metric_officer", columnList = "officer_id"),
+    @Index(name = "idx_metric_type", columnList = "metric_type")
 })
 @Getter
 @Setter
@@ -28,8 +31,24 @@ public class SatisfactionMetric {
     private Long metricId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "program_id", nullable = false)
+    @JoinColumn(name = "program_id")
     private TrainingProgram program;
+
+    /**
+     * The Extension Officer this metric is computed for.
+     * Populated only for OFFICER_PERFORMANCE metrics.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "officer_id")
+    private User officer;
+
+    /**
+     * Distinguishes between program satisfaction (Training → Participation.workshopRating)
+     * and officer performance (Advisory → Feedback.rating).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "metric_type", nullable = false, length = 30)
+    private MetricType metricType;
 
     /** Average satisfaction score out of 5 */
     @Column(nullable = false)

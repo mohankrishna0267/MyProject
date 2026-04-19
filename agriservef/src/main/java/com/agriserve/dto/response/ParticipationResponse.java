@@ -25,6 +25,7 @@ public class ParticipationResponse {
     private String farmerName;
     private AttendanceStatus attendanceStatus;
     private String feedback;
+    private Integer workshopRating;   // training satisfaction score (1-5)
     private LocalDateTime createdAt;
 
     public static ParticipationResponse from(Participation p) {
@@ -36,6 +37,7 @@ public class ParticipationResponse {
                 .farmerName(p.getFarmer() != null ? p.getFarmer().getName() : null)
                 .attendanceStatus(p.getAttendanceStatus())
                 .feedback(p.getFeedback())
+                .workshopRating(p.getWorkshopRating())
                 .createdAt(p.getCreatedAt())
                 .build();
     }

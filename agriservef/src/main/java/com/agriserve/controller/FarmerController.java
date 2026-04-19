@@ -59,13 +59,14 @@ public class FarmerController {
 
     @Operation(summary = "Get a farmer by ID")
     @GetMapping("/{farmerId}")
+    @PreAuthorize("hasAnyRole('EXTENSION_OFFICER', 'PROGRAM_MANAGER', 'ADMIN') ")
     public ResponseEntity<ApiResponse<FarmerResponse>> getFarmerById(@PathVariable Long farmerId) {
         return ResponseEntity.ok(ApiResponse.success(farmerService.getFarmerById(farmerId)));
     }
 
     @Operation(summary = "Update a farmer profile")
     @PutMapping("/{farmerId}")
-    @PreAuthorize("hasAnyRole('EXTENSION_OFFICER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('EXTENSION_OFFICER', 'ADMIN') or @securityService.isOwner(#farmerId)")
     public ResponseEntity<ApiResponse<FarmerResponse>> updateFarmer(
             @PathVariable Long farmerId,
             @Valid @RequestBody FarmerRequest request) {
@@ -93,7 +94,7 @@ public class FarmerController {
 
     @Operation(summary = "Upload a KYC document for a farmer (multipart/form-data)")
     @PostMapping(value = "/{farmerId}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('EXTENSION_OFFICER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('EXTENSION_OFFICER', 'ADMIN')  or @securityService.isOwner(#farmerId)")
     public ResponseEntity<ApiResponse<FarmerDocumentResponse>> uploadDocument(
             @PathVariable Long farmerId,
             @RequestParam DocumentType docType,
@@ -102,8 +103,9 @@ public class FarmerController {
                 .body(ApiResponse.success(farmerService.uploadDocument(farmerId, docType, file), "Document uploaded"));
     }
 
-    @Operation(summary = "Get all documents for a farmer")
+    @Operation(summary = "Get all documents for a farmer (own documents or staff/admin)")
     @GetMapping("/{farmerId}/documents")
+    @PreAuthorize("hasAnyRole('EXTENSION_OFFICER', 'PROGRAM_MANAGER', 'ADMIN') or @securityService.isOwner(#farmerId)")
     public ResponseEntity<ApiResponse<Page<FarmerDocumentResponse>>> getDocuments(
             @PathVariable Long farmerId,
             @PageableDefault(size = 10) Pageable pageable) {

@@ -14,10 +14,14 @@ import java.util.List;
 
 /**
  * Represents a registered farmer in the AgriServe system.
- * A farmer may optionally have a corresponding User account for portal access.
+ * Each farmer is backed by exactly one User account (FARMER role) for portal
+ * access.
  */
 @Entity
-@Table(name = "farmers")
+@Table(name = "farmers", uniqueConstraints = {
+        @UniqueConstraint(name = "uq_farmer_phone", columnNames = "phone"),
+        @UniqueConstraint(name = "uq_farmer_email", columnNames = "email")
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -43,7 +47,23 @@ public class Farmer {
     @Column(columnDefinition = "TEXT")
     private String address;
 
-    /** JSON or CSV of contact info (phone, email, whatsapp) */
+    /**
+     * Farmer's primary phone number — unique, used for duplicate-registration
+     * detection.
+     * Must be provided at registration.
+     */
+    @Column(name = "phone", nullable = false, length = 20)
+    private String phone;
+
+    /**
+     * Farmer's primary email address — unique, used for duplicate-registration
+     * detection.
+     * Must be provided at registration.
+     */
+    @Column(name = "email", nullable = false, length = 150)
+    private String email;
+
+    /** JSON or CSV of additional contact info (whatsapp, alternate number) */
     @Column(name = "contact_info", length = 300)
     private String contactInfo;
 
@@ -69,6 +89,14 @@ public class Farmer {
     private LocalDateTime updatedAt;
 
     // ─── Relationships ───────────────────────────────────────────────────────
+
+    /**
+     * The authenticated User account that owns this farmer profile.
+     * Mandatory — every farmer must log in through their User account.
+     */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false, unique = true, updatable = false)
+    private User user;
 
     @OneToMany(mappedBy = "farmer", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

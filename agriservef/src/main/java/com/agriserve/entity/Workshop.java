@@ -44,6 +44,14 @@ public class Workshop {
     @Column(name = "workshop_date")
     private LocalDateTime workshopDate;
 
+    /**
+     * Timestamp when the workshop was marked COMPLETED.
+     * Metric calculation is delayed by 24 hours from this timestamp
+     * to give all farmers time to submit their ratings.
+     */
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default

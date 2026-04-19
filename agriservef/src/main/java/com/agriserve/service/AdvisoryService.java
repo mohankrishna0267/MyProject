@@ -20,14 +20,14 @@ public interface AdvisoryService {
     AdvisoryContentResponse getContentById(Long contentId);
 
     Page<AdvisoryContentResponse> searchContent(String title, AdvisoryCategory category,
-                                                Status status, Pageable pageable);
+            Status status, Pageable pageable);
 
     AdvisoryContentResponse updateContent(Long contentId, AdvisoryContentRequest request);
 
     void deleteContent(Long contentId);
 
     // Sessions
-    AdvisorySessionResponse bookSession(AdvisorySessionRequest request);
+    AdvisorySessionResponse createSession(AdvisorySessionRequest request);
 
     AdvisorySessionResponse getSessionById(Long sessionId);
 

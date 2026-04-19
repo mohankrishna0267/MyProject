@@ -25,6 +25,7 @@ public class WorkshopResponse {
     private String officerName;
     private String location;
     private LocalDateTime workshopDate;
+    private LocalDateTime completedAt;
     private Status status;
     private LocalDateTime createdAt;
 
@@ -37,6 +38,7 @@ public class WorkshopResponse {
                 .officerName(workshop.getOfficer() != null ? workshop.getOfficer().getName() : null)
                 .location(workshop.getLocation())
                 .workshopDate(workshop.getWorkshopDate())
+                .completedAt(workshop.getCompletedAt())
                 .status(workshop.getStatus())
                 .createdAt(workshop.getCreatedAt())
                 .build();

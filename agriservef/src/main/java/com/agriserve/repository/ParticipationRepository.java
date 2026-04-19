@@ -22,4 +22,13 @@ public interface ParticipationRepository extends JpaRepository<Participation, Lo
 
     @Query("SELECT COUNT(p) FROM Participation p WHERE p.workshop.workshopId = :workshopId AND p.attendanceStatus = :status")
     long countByWorkshopAndStatus(@Param("workshopId") Long workshopId, @Param("status") AttendanceStatus status);
+
+    /**
+     * Compute average workshopRating for all rated participations in a given program.
+     * Used for PROGRAM_SATISFACTION metric.
+     * NOTE: This is TRAINING data only — do NOT mix with Feedback.rating (advisory).
+     */
+    @Query("SELECT AVG(p.workshopRating) FROM Participation p "
+         + "WHERE p.workshop.program.programId = :programId AND p.workshopRating IS NOT NULL")
+    Double findAverageWorkshopRatingByProgramId(@Param("programId") Long programId);
 }

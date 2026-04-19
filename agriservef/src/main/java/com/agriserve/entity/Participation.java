@@ -2,6 +2,8 @@ package com.agriserve.entity;
 
 import com.agriserve.entity.enums.AttendanceStatus;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -43,6 +45,12 @@ public class Participation {
     @Column(name = "attendance_status", nullable = false, length = 20)
     @Builder.Default
     private AttendanceStatus attendanceStatus = AttendanceStatus.ABSENT;
+
+    /** Farmer's rating for the workshop (1–5). Used for Program Satisfaction metric. */
+    @Min(value = 1, message = "Workshop rating must be at least 1")
+    @Max(value = 5, message = "Workshop rating must be at most 5")
+    @Column(name = "workshop_rating")
+    private Integer workshopRating;
 
     @Column(columnDefinition = "TEXT")
     private String feedback;

@@ -20,6 +20,10 @@ public interface FeedbackService {
 
     Double getAverageRatingBySession(Long sessionId);
 
-    /** Computes and stores a SatisfactionMetric for the given program */
-    Double computeAndStoreSatisfactionMetric(Long programId);
+    /**
+     * Computes and stores OFFICER_PERFORMANCE metric using AVG(Feedback.rating)
+     * for all advisory sessions handled by the officer.
+     * @param officerId the User ID of the Extension Officer
+     */
+    Double computeAndStoreSatisfactionMetric(Long officerId);
 }

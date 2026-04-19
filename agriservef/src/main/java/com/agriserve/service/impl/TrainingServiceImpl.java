@@ -1,6 +1,7 @@
 package com.agriserve.service.impl;
 
-import com.agriserve.dto.request.ParticipationRequest;
+import com.agriserve.dto.request.RegisterParticipationRequest;
+import com.agriserve.dto.request.SubmitFeedbackAndRatingRequest;
 import com.agriserve.dto.request.TrainingProgramRequest;
 import com.agriserve.dto.request.WorkshopRequest;
 import com.agriserve.dto.response.ParticipationResponse;
@@ -11,6 +12,7 @@ import com.agriserve.entity.Participation;
 import com.agriserve.entity.TrainingProgram;
 import com.agriserve.entity.User;
 import com.agriserve.entity.Workshop;
+import com.agriserve.entity.enums.AttendanceStatus;
 import com.agriserve.entity.enums.Status;
 import com.agriserve.exception.BusinessException;
 import com.agriserve.exception.ResourceNotFoundException;
@@ -19,7 +21,9 @@ import com.agriserve.repository.ParticipationRepository;
 import com.agriserve.repository.TrainingProgramRepository;
 import com.agriserve.repository.UserRepository;
 import com.agriserve.repository.WorkshopRepository;
+import com.agriserve.service.AuditLogService;
 import com.agriserve.service.TrainingService;
+import com.agriserve.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -27,8 +31,23 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 /**
  * Manages training programs, workshops, and farmer participation tracking.
+ *
+ * <p>
+ * <strong>Participation lifecycle (enforced in this class):</strong>
+ * </p>
+ * <ol>
+ * <li>Officer → {@link #registerParticipation} — creates record, attendance =
+ * ABSENT</li>
+ * <li>Workshop → COMPLETED</li>
+ * <li>Officer/Admin → {@link #updateAttendance} — marks PRESENT / ABSENT /
+ * etc.</li>
+ * <li>Farmer (if PRESENT) → {@link #submitFeedbackAndRating} — submits
+ * rating/feedback</li>
+ * </ol>
  */
 @Slf4j
 @Service
@@ -40,6 +59,7 @@ public class TrainingServiceImpl implements TrainingService {
     private final ParticipationRepository participationRepository;
     private final UserRepository userRepository;
     private final FarmerRepository farmerRepository;
+    private final AuditLogService auditLogService;
 
     // ─── Training Programs ────────────────────────────────────────────────────
 
@@ -53,7 +73,13 @@ public class TrainingServiceImpl implements TrainingService {
                 .endDate(request.getEndDate())
                 .status(request.getStatus() != null ? request.getStatus() : Status.DRAFT)
                 .build();
-        return TrainingProgramResponse.from(programRepository.save(program));
+        TrainingProgram saved = programRepository.save(program);
+
+        log.info("Program created: {}", saved.getTitle());
+        auditLogService.log(SecurityUtils.getCurrentUserId(), "CREATE_PROGRAM",
+                "Program#" + saved.getProgramId());
+
+        return TrainingProgramResponse.from(saved);
     }
 
     @Override
@@ -79,8 +105,15 @@ public class TrainingServiceImpl implements TrainingService {
         program.setDescription(request.getDescription());
         program.setStartDate(request.getStartDate());
         program.setEndDate(request.getEndDate());
-        if (request.getStatus() != null) program.setStatus(request.getStatus());
-        return TrainingProgramResponse.from(programRepository.save(program));
+        if (request.getStatus() != null)
+            program.setStatus(request.getStatus());
+        TrainingProgram updated = programRepository.save(program);
+
+        log.info("Program updated: {}", programId);
+        auditLogService.log(SecurityUtils.getCurrentUserId(), "UPDATE_PROGRAM",
+                "Program#" + programId);
+
+        return TrainingProgramResponse.from(updated);
     }
 
     @Override
@@ -106,7 +139,13 @@ public class TrainingServiceImpl implements TrainingService {
                 .workshopDate(request.getWorkshopDate())
                 .status(Status.PENDING)
                 .build();
-        return WorkshopResponse.from(workshopRepository.save(workshop));
+        Workshop saved = workshopRepository.save(workshop);
+
+        log.info("Workshop created: program={}, officer={}", request.getProgramId(), request.getOfficerId());
+        auditLogService.log(SecurityUtils.getCurrentUserId(), "CREATE_WORKSHOP",
+                "Workshop#" + saved.getWorkshopId() + ", programId=" + program.getProgramId());
+
+        return WorkshopResponse.from(saved);
     }
 
     @Override
@@ -122,47 +161,155 @@ public class TrainingServiceImpl implements TrainingService {
         return workshopRepository.findAllByProgram_ProgramId(programId, pageable).map(WorkshopResponse::from);
     }
 
+    /**
+     * Updates workshop status and stamps {@code completedAt} when transitioning
+     * to COMPLETED — enabling the participation feedback window to open.
+     */
     @Override
     @Transactional
     public WorkshopResponse updateWorkshopStatus(Long workshopId, Status status) {
         Workshop workshop = findWorkshopOrThrow(workshopId);
         workshop.setStatus(status);
-        return WorkshopResponse.from(workshopRepository.save(workshop));
+
+        if (status == Status.COMPLETED && workshop.getCompletedAt() == null) {
+            workshop.setCompletedAt(LocalDateTime.now());
+            log.info("Workshop {} marked COMPLETED at {}", workshopId, workshop.getCompletedAt());
+        }
+
+        Workshop updated = workshopRepository.save(workshop);
+
+        log.info("Workshop status updated: workshop={}, status={}", workshopId, status);
+        auditLogService.log(SecurityUtils.getCurrentUserId(), "UPDATE_WORKSHOP_STATUS",
+                "Workshop#" + workshopId + " -> " + status);
+
+        return WorkshopResponse.from(updated);
     }
 
     // ─── Participation ────────────────────────────────────────────────────────
 
+    /**
+     * Registers a farmer for a workshop. Called by EXTENSION_OFFICER only.
+     *
+     * <ul>
+     * <li>Farmer must be ACTIVE.</li>
+     * <li>Farmer cannot be registered twice for the same workshop.</li>
+     * <li>Attendance defaults to ABSENT; no rating/feedback accepted here.</li>
+     * </ul>
+     */
     @Override
     @Transactional
-    public ParticipationResponse registerParticipation(ParticipationRequest request) {
+    public ParticipationResponse registerParticipation(RegisterParticipationRequest request) {
         Workshop workshop = findWorkshopOrThrow(request.getWorkshopId());
         Farmer farmer = farmerRepository.findById(request.getFarmerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Farmer", "id", request.getFarmerId()));
 
-        // Enforce uniqueness: one registration per farmer per workshop
+        // Farmer must be ACTIVE to register
+        if (farmer.getStatus() != Status.ACTIVE) {
+            throw new BusinessException(
+                    "Farmer [" + farmer.getFarmerId() + "] is not ACTIVE (current status: "
+                            + farmer.getStatus() + "). Only ACTIVE farmers can be registered for workshops.");
+        }
+
+        // Duplicate-registration guard
         participationRepository.findByWorkshop_WorkshopIdAndFarmer_FarmerId(
                 request.getWorkshopId(), request.getFarmerId())
                 .ifPresent(p -> {
-                    throw new BusinessException("Farmer is already registered for this workshop");
+                    throw new BusinessException("Farmer is already registered for this workshop.");
                 });
 
         Participation participation = Participation.builder()
                 .workshop(workshop)
                 .farmer(farmer)
-                .attendanceStatus(request.getAttendanceStatus())
-                .feedback(request.getFeedback())
+                .attendanceStatus(AttendanceStatus.ABSENT) // explicitly default; no input accepted
                 .build();
-        return ParticipationResponse.from(participationRepository.save(participation));
+        Participation saved = participationRepository.save(participation);
+
+        log.info("Participation registered: farmer={}, workshop={}",
+                farmer.getFarmerId(), workshop.getWorkshopId());
+        auditLogService.log(SecurityUtils.getCurrentUserId(), "REGISTER_PARTICIPATION",
+                "Participation#" + saved.getParticipationId() + ", workshopId=" + workshop.getWorkshopId());
+
+        return ParticipationResponse.from(saved);
     }
 
+    /**
+     * Updates the attendance status for a participation record.
+     * Called by EXTENSION_OFFICER or ADMIN — ONLY after the workshop is COMPLETED.
+     * Feedback and rating are not touched here.
+     */
     @Override
     @Transactional
-    public ParticipationResponse updateParticipation(Long participationId, ParticipationRequest request) {
+    public ParticipationResponse updateAttendance(Long participationId, AttendanceStatus attendanceStatus) {
+
+        if (attendanceStatus == null) {
+            throw new BusinessException("Attendance status is required");
+        }
+
         Participation participation = participationRepository.findById(participationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Participation", "id", participationId));
-        participation.setAttendanceStatus(request.getAttendanceStatus());
-        participation.setFeedback(request.getFeedback());
-        return ParticipationResponse.from(participationRepository.save(participation));
+
+        // Gate: workshop must be COMPLETED before attendance can be recorded
+        if (participation.getWorkshop().getStatus() != Status.COMPLETED) {
+            throw new BusinessException(
+                    "Attendance can only be updated after the workshop is COMPLETED. " +
+                            "Current workshop status: " + participation.getWorkshop().getStatus());
+        }
+
+        participation.setAttendanceStatus(attendanceStatus);
+        Participation updated = participationRepository.save(participation);
+
+        log.info("Attendance updated: participation={}, status={}", participationId, attendanceStatus);
+        auditLogService.log(SecurityUtils.getCurrentUserId(), "UPDATE_ATTENDANCE",
+                "Participation#" + participationId + "status=" + attendanceStatus);
+
+        return ParticipationResponse.from(updated);
+    }
+
+    /**
+     * Submits workshop feedback and/or a satisfaction rating on behalf of the
+     * farmer.
+     * Called by FARMER only (ownership verified at controller via @PreAuthorize).
+     *
+     * <ul>
+     * <li>Workshop must be COMPLETED.</li>
+     * <li>Farmer must have PRESENT attendance on this participation record.</li>
+     * </ul>
+     */
+    @Override
+    @Transactional
+    public ParticipationResponse submitFeedbackAndRating(Long participationId,
+            SubmitFeedbackAndRatingRequest request) {
+        Participation participation = participationRepository.findById(participationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Participation", "id", participationId));
+
+        // Gate 1: workshop must be COMPLETED
+        if (participation.getWorkshop().getStatus() != Status.COMPLETED) {
+            throw new BusinessException(
+                    "Workshop must be COMPLETED before submitting feedback. " +
+                            "Current workshop status: " + participation.getWorkshop().getStatus());
+        }
+
+        // Gate 2: farmer must have actually attended (PRESENT)
+        if (participation.getAttendanceStatus() != AttendanceStatus.PRESENT) {
+            throw new BusinessException(
+                    "Only farmers who attended (PRESENT) the workshop can submit feedback. " +
+                            "Current attendance status: " + participation.getAttendanceStatus());
+        }
+
+        if (request.getFeedback() != null) {
+            participation.setFeedback(request.getFeedback());
+        }
+        if (request.getRating() != null) {
+            participation.setWorkshopRating(request.getRating());
+        }
+        Participation updated = participationRepository.save(participation);
+
+        log.info("Feedback submitted: participation={}, rating={}", participationId, request.getRating());
+        auditLogService.log(participation.getFarmer().getUser(), "SUBMIT_FEEDBACK_RATING",
+                "Participation#" + participationId,
+                "rating=" + request.getRating());
+
+        return ParticipationResponse.from(updated);
     }
 
     @Override

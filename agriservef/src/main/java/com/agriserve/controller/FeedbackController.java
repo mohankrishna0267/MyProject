@@ -29,48 +29,52 @@ public class FeedbackController {
 
     private final FeedbackService feedbackService;
 
-    @Operation(summary = "Submit feedback for an advisory session (Farmer / Officer)")
+    @Operation(summary = "Submit feedback for an advisory session (FARMER only)")
     @PostMapping
-    @PreAuthorize("hasAnyRole('FARMER', 'EXTENSION_OFFICER', 'ADMIN')")
+    @PreAuthorize("hasRole('FARMER')")
     public ResponseEntity<ApiResponse<FeedbackResponse>> submitFeedback(
             @Valid @RequestBody FeedbackRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(feedbackService.submitFeedback(request), "Feedback submitted"));
     }
 
-    @Operation(summary = "Get feedback by ID")
+    @Operation(summary = "Get feedback by ID (Officer / Manager / Admin)")
     @GetMapping("/{feedbackId}")
+    @PreAuthorize("hasAnyRole('EXTENSION_OFFICER', 'PROGRAM_MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<FeedbackResponse>> getFeedbackById(@PathVariable Long feedbackId) {
         return ResponseEntity.ok(ApiResponse.success(feedbackService.getFeedbackById(feedbackId)));
     }
 
-    @Operation(summary = "Get all feedback submitted by a farmer")
+    @Operation(summary = "Get all feedback submitted by a farmer (own feedback only for FARMER role)")
     @GetMapping("/farmer/{farmerId}")
+    @PreAuthorize("hasAnyRole('EXTENSION_OFFICER', 'PROGRAM_MANAGER', 'ADMIN') or @securityService.isOwner(#farmerId)")
     public ResponseEntity<ApiResponse<Page<FeedbackResponse>>> getFeedbackByFarmer(
             @PathVariable Long farmerId,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(feedbackService.getFeedbackByFarmer(farmerId, pageable)));
     }
 
-    @Operation(summary = "Get all feedback for an advisory session")
+    @Operation(summary = "Get all feedback for an advisory session (Officer / Manager / Admin)")
     @GetMapping("/session/{sessionId}")
+    @PreAuthorize("hasAnyRole('EXTENSION_OFFICER', 'PROGRAM_MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<Page<FeedbackResponse>>> getFeedbackBySession(
             @PathVariable Long sessionId,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(feedbackService.getFeedbackBySession(sessionId, pageable)));
     }
 
-    @Operation(summary = "Get average rating for an advisory session")
+    @Operation(summary = "Get average advisory rating for a session (Officer / Manager / Admin)")
     @GetMapping("/session/{sessionId}/average-rating")
+    @PreAuthorize("hasAnyRole('EXTENSION_OFFICER', 'PROGRAM_MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<Double>> getAverageRating(@PathVariable Long sessionId) {
         return ResponseEntity.ok(ApiResponse.success(feedbackService.getAverageRatingBySession(sessionId)));
     }
 
-    @Operation(summary = "Compute and persist satisfaction metric for a training program (Manager / Admin)")
-    @PostMapping("/satisfaction/program/{programId}/compute")
+    @Operation(summary = "Compute and persist OFFICER PERFORMANCE metric (Manager / Admin)")
+    @PostMapping("/satisfaction/officer/{officerId}/compute")
     @PreAuthorize("hasAnyRole('PROGRAM_MANAGER', 'ADMIN')")
-    public ResponseEntity<ApiResponse<Double>> computeSatisfactionMetric(@PathVariable Long programId) {
-        Double score = feedbackService.computeAndStoreSatisfactionMetric(programId);
-        return ResponseEntity.ok(ApiResponse.success(score, "Satisfaction metric computed and stored"));
+    public ResponseEntity<ApiResponse<Double>> computeSatisfactionMetric(@PathVariable Long officerId) {
+        Double score = feedbackService.computeAndStoreSatisfactionMetric(officerId);
+        return ResponseEntity.ok(ApiResponse.success(score, "Officer performance metric computed and stored"));
     }
 }
